@@ -63,36 +63,45 @@ async function main() {
 
   console.log("Marketplace deployed to:       ", marketplace.address); //0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
   console.log("_rewardsAmount", await marketplace._rewardsAmount());
-  console.log("items", await marketplace.items(0));
+  console.log("items", await marketplace._saleItems(0));
 
-  console.log("********************* FLOW **************************");
+  console.log("********************* SALE **************************");
   const currentBlock = await ethers.provider.getBlockNumber();
   const blockTimestamp = (await ethers.provider.getBlock(currentBlock))
     .timestamp;
 
-  console.log("block timestamp", currentBlock, blockTimestamp);
+  const r3 = (
+    await marketplace
+      .connect(accounts[0])
+      .setForSale(0, 1000, blockTimestamp + 1)
+  ).hash;
 
-  // SELL
-  await marketplace
-    .connect(accounts[0])
-    .setForSale(0, 1000, blockTimestamp + 1);
   await nt.connect(accounts[0]).approve(marketplace.address, 0);
 
+  //*********Logging********
+  console.log(
+    "Gas Used for setForSale",
+    await (
+      await ethers.provider.getTransactionReceipt(r3)
+    ).gasUsed
+  );
   console.log("_rewardsAmount", await marketplace._rewardsAmount());
-  console.log("items", await marketplace.items(0));
+  console.log("items", await marketplace._saleItems(0));
 
-  // BUY
+  console.log("********************* BUY **************************");
   await pt.connect(accounts[1]).approve(marketplace.address, 1000);
+
   const r5 = await (await marketplace.connect(accounts[1]).buy(0)).hash;
+
+  //*********Logging********
   console.log(
     "Gas Used for Buy",
     await (
       await ethers.provider.getTransactionReceipt(r5)
     ).gasUsed
   );
-
   console.log("_rewardsAmount", await marketplace._rewardsAmount(), 1000);
-  console.log("items", await marketplace.items(0), 0);
+  console.log("_saleItems", await marketplace._saleItems(0), 0);
   console.log(
     await nt.ownerOf(0),
     "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
@@ -107,16 +116,17 @@ async function main() {
     await pt.balanceOf(accounts[1].address),
     "-1000)"
   );
-  // CLAIM
+
   console.log("********************* CLAIM **************************");
-  const r4 = await (await marketplace.claim(accounts[0].address)).hash;
+  const r4 = await (await marketplace.connect(accounts[0]).claimReward()).hash;
+
+  //*********Logging********
   console.log(
     "Gas Used for claim",
     await (
       await ethers.provider.getTransactionReceipt(r4)
     ).gasUsed
   );
-
   console.log("_rewardsAmount", await marketplace._rewardsAmount(), 0);
   console.log(
     "paymant token marketplace",
@@ -143,39 +153,57 @@ async function main() {
     "+1000)"
   );
 
-  //Discard sell
-  console.log("********************* Discard Sell **************************");
+  console.log(
+    "********************* POSTFHONE, UPDATE, DISCARD SALE **************************"
+  );
   const currentBlock2 = await ethers.provider.getBlockNumber();
   const blockTimestamp2 = (await ethers.provider.getBlock(currentBlock2))
     .timestamp;
 
-  const r3 = (
-    await marketplace
-      .connect(accounts[0])
-      .setForSale(1, 1000, blockTimestamp2 + 1)
-  ).hash;
-
-  console.log(
-    "Gas Used for setForSale",
-    await (
-      await ethers.provider.getTransactionReceipt(r3)
-    ).gasUsed
-  );
+  await marketplace
+    .connect(accounts[0])
+    .setForSale(1, 1000, blockTimestamp2 + 1);
 
   await nt.connect(accounts[0]).approve(marketplace.address, 1);
-  console.log("items 1 before discard", await marketplace.items(1));
+  console.log("_saleItems 1 before discard", await marketplace._saleItems(1));
 
-  //postphone sell
-  console.log("*************** postphone Sell *******************");
-  const r2 = await (await marketplace.postponeSale(1, 1000)).hash;
+  console.log("*************** POSTPHONE SALE *******************");
+  const r2 = await (
+    await marketplace.postponeSale(
+      1,
+      ethers.BigNumber.from("18446744073709551615")
+    )
+  ).hash;
   console.log(
     "Gas Used for postponeSale",
     await (
       await ethers.provider.getTransactionReceipt(r2)
     ).gasUsed
   );
-  console.log("items 1 after postphone", await marketplace.items(1));
 
+  console.log("*************** UPDATE PRICE *******************");
+  console.log(
+    "_saleItems 1 before update Price",
+    await marketplace._saleItems(1)
+  );
+  const r7 = await (
+    await marketplace.updatePrice(
+      1,
+      ethers.BigNumber.from("18446744073709551615")
+    )
+  ).hash;
+  console.log(
+    "Gas Used for update Price",
+    await (
+      await ethers.provider.getTransactionReceipt(r7)
+    ).gasUsed
+  );
+  console.log(
+    "_saleItems 1 after update Price",
+    await marketplace._saleItems(1)
+  );
+
+  console.log("*************** DISCARD SALE *******************");
   const r1 = await (
     await marketplace.connect(accounts[0]).discardFromSale(1)
   ).hash;
@@ -185,7 +213,7 @@ async function main() {
       await ethers.provider.getTransactionReceipt(r1)
     ).gasUsed
   );
-  console.log("items 1 after discard", await marketplace.items(1));
+  console.log("_saleItems 1 after discard", await marketplace._saleItems(1));
 }
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.

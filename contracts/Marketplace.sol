@@ -3,152 +3,169 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "hardhat/console.sol";
-
-interface IRewardToken is IERC20 {
-    function rewardUser(address owner, uint256 amount) external;
-}
 
 contract Rewardable {
-    using SafeMath for uint256;
-
-    error NothingForClaim();
-
-    struct Reward {
+     struct Reward {
         uint256 timestamp;
         uint256 amount;
     }
+    
+    event RewardsClaimed(address indexed seller, uint256 amount);
+    error NothingForClaim();
+   
+    uint256 public constant _PCT_DENOMINATOR = 1000;
+    uint256 private constant _SEED = 335813536577843457;
 
-    uint256 public constant PCT_DENOMINATOR = 1000;
-
-    uint256 private constant SEED = 335813536577843457;
-    IERC20 internal PAYMENT_TOKEN;
-    IRewardToken internal REWARD_TOKEN;
-
+    IERC20 internal _PAYMENT_TOKEN;
+    IERC20 internal _REWARD_TOKEN;
     uint256 public _rewardsAmount;
 
-    // user => reward
-    mapping(address => Reward[]) internal _rewards;
+    mapping(address => Reward[]) internal _rewards;  // user => reward
 
     constructor(address rewardToken, address paymentToken) {
-        REWARD_TOKEN = IRewardToken(rewardToken);
-        PAYMENT_TOKEN = IERC20(paymentToken);
+        _REWARD_TOKEN = IERC20(rewardToken);
+        _PAYMENT_TOKEN = IERC20(paymentToken);
     }
 
-    function claim(address user) external {
-        uint256 length = _rewards[user].length;
+    function claimReward() external {
+        uint256 length = _rewards[msg.sender].length;
         if (length == 0) revert NothingForClaim();
 
-        for (uint256 i = 0; i < length; i++) {
-            Reward storage reward = _rewards[user][length - 1];
-            withdrawLastDeposit(user, reward.amount);
-            payRewards(user, reward);
-        }
+        for (uint256 i = 0; i < length;) {
+            Reward memory reward = _rewards[msg.sender][length - 1];
+            withdrawLastDeposit(msg.sender, reward.amount);
+            payRewards(msg.sender, reward);
 
-        delete _rewards[user];
+            unchecked {
+                ++i;
+            }
+        }
+      
+        delete _rewards[msg.sender];
     }
 
-    function payRewards(address user, Reward memory reward) internal {
+    function payRewards(address seller, Reward memory reward) internal {
         uint256 random = uint256(
-            keccak256(abi.encodePacked(block.timestamp, SEED))
+            keccak256(abi.encodePacked(block.timestamp, _SEED))
         );
         uint256 daysDelta = (block.timestamp - reward.timestamp) / 1 days;
-        uint256 userReward = (reward.amount / PCT_DENOMINATOR) *
-            (random % daysDelta);
 
-        if (userReward > 0) {
-            REWARD_TOKEN.rewardUser(user, userReward);
+        if(daysDelta != 0){
+            uint256 sellerReward = (reward.amount / _PCT_DENOMINATOR) * (random % daysDelta) == 0 ? 1 : (random % daysDelta);
+            _REWARD_TOKEN.transfer(seller, sellerReward);
+            emit RewardsClaimed(seller, sellerReward);
         }
     }
 
-    function withdrawLastDeposit(address user, uint256 amount) internal {
-        _rewards[user].pop();
+    function withdrawLastDeposit(address seller, uint256 amount) internal {
+        _rewards[seller].pop();
 
         _rewardsAmount -= amount;
-        PAYMENT_TOKEN.transfer(user, amount);
+        _PAYMENT_TOKEN.transfer(seller, amount);
     }
 
     function depositForRewards(
-        address user,
-        address payer,
+        address seller,
+        address buyer,
         uint256 amount
     ) internal {
-        PAYMENT_TOKEN.transferFrom(payer, address(this), amount);
+        _PAYMENT_TOKEN.transferFrom(buyer, address(this), amount);
         _rewardsAmount += amount;
 
-        _rewards[user].push(Reward(block.timestamp, amount));
+        _rewards[seller].push(Reward(block.timestamp, amount));
     }
 }
 
 contract Marketplace is Rewardable {
-    error AlreadyOwner();
-    error NotItemOwner();
-    error InvalidSale();
-    error AlreadyOnSale();
+    using SafeMath for uint256;
 
-    struct ItemSale {
+    struct SaleItem {
         address seller;
         uint256 price;
         uint256 startTime;
+    }   
+   
+    IERC721 internal _NFT_TOKEN;
+    mapping(uint64 => SaleItem) public _saleItems; // nft tokenId => item
+
+    event SetForSale(address indexed seller, uint64 indexed tokenId, uint256 price, uint256 startTime);
+    event DiscardFromSale(address indexed seller, uint64 indexed tokenId);
+    event UpdatePrice(address indexed seller, uint64 indexed tokenId, uint256 oldPrice, uint256 newPrice);
+    event PostponeSale(address indexed seller, uint64 indexed tokenId, uint256 newStartTime);
+    event Buy(address indexed seller, address indexed buyer, uint64 indexed tokenId, uint256 price);
+
+    error AlreadyOwner();
+    error NotItemOwner();
+    error InvalidSale(string message);
+    error AlreadyOnSale();
+
+    modifier _nftOwnerOnly(uint64 tokenId) {
+      require(_NFT_TOKEN.ownerOf(tokenId) == msg.sender, "only nft owner");
+      _;
     }
-
-    IERC721 internal NFT_TOKEN;
-
-    // nft tokenId => item
-    mapping(uint256 => ItemSale) public items;
 
     constructor(
         address nftToken,
         address paymentToken,
         address rewardToken
     ) Rewardable(rewardToken, paymentToken) {
-        NFT_TOKEN = IERC721(nftToken);
+        _NFT_TOKEN = IERC721(nftToken);
     }
 
     function setForSale(
-        uint256 tokenId,
+        uint64 tokenId,
         uint256 price,
         uint256 startTime
-    ) external {
-        if (NFT_TOKEN.ownerOf(tokenId) != msg.sender) revert NotItemOwner();
-        if (block.timestamp > startTime) revert InvalidSale();
-        if (items[tokenId].price == price) revert InvalidSale();
+    ) external _nftOwnerOnly(tokenId) {
+        if (_saleItems[tokenId].startTime > 0) revert AlreadyOnSale();
+        if (block.timestamp > startTime) revert InvalidSale("token sale time should be greater than current time");
+       
 
-        items[tokenId] = ItemSale(msg.sender, price, startTime);
+        _saleItems[tokenId] = SaleItem(msg.sender, price, startTime);
+        emit SetForSale(msg.sender, tokenId, price, startTime);
     }
 
-    function discardFromSale(uint256 tokenId) external {
-        if (NFT_TOKEN.ownerOf(tokenId) != msg.sender) revert NotItemOwner();
-
-        delete items[tokenId];
+    function discardFromSale(uint64 tokenId) external _nftOwnerOnly(tokenId) {
+        delete _saleItems[tokenId];
+        emit DiscardFromSale(msg.sender, tokenId);
     }
+    function updatePrice(uint64 tokenId, uint256 newPrice) external  _nftOwnerOnly(tokenId) {
+        SaleItem storage sale = _saleItems[tokenId];
+        if(sale.price == newPrice) revert InvalidSale("new price should be not equal to old price");
 
-    function postponeSale(uint256 tokenId, uint256 postponeSeconds) external {
-        if (NFT_TOKEN.ownerOf(tokenId) != msg.sender) revert NotItemOwner();
 
-        ItemSale storage item = items[tokenId];
         assembly {
-            let s := add(item.slot, 2)
+            let s := add(sale.slot, 1)
+            sstore(s, add(sload(s), newPrice))
+        }
+        emit UpdatePrice(msg.sender, tokenId, sale.price, newPrice );
+    }
+
+    function postponeSale(uint64 tokenId, uint64 postponeSeconds) external  _nftOwnerOnly(tokenId) {
+        SaleItem storage sale = _saleItems[tokenId];
+        if (block.timestamp > sale.startTime + postponeSeconds && (sale.startTime + postponeSeconds) < type(uint64).max ) 
+        revert InvalidSale("new token sale time should be greater than current time and less than uint64 max value");
+        assembly {
+            let s := add(sale.slot, 2)
             sstore(s, add(sload(s), postponeSeconds))
         }
+        emit PostponeSale(msg.sender, tokenId, sale.startTime);
     }
 
-    function buy(uint256 tokenId) external {
-        address owner = NFT_TOKEN.ownerOf(tokenId);
-        if (owner == msg.sender) revert AlreadyOwner();
-        if (block.timestamp < items[tokenId].startTime) revert InvalidSale();
+    function buy(uint64 tokenId) external {
+        address seller = _NFT_TOKEN.ownerOf(tokenId);
+        if (seller == msg.sender) revert AlreadyOwner();
+        if (block.timestamp < _saleItems[tokenId].startTime) revert InvalidSale("token not for sale yet");
 
-        if (
-            items[tokenId].price == 0 ||
-            items[tokenId].seller == address(0) ||
-            items[tokenId].seller == msg.sender
-        ) revert InvalidSale();
+        if (_saleItems[tokenId].seller == address(0) ||
+            _saleItems[tokenId].seller == msg.sender
+        ) revert InvalidSale("token dosn't exist or sender already own it");
 
-        depositForRewards(owner, msg.sender, items[tokenId].price);
-        NFT_TOKEN.transferFrom(owner, msg.sender, tokenId);
-        delete items[tokenId];
+        depositForRewards(seller, msg.sender, _saleItems[tokenId].price);
+        _NFT_TOKEN.transferFrom(seller, msg.sender, tokenId);
+        emit Buy(seller, msg.sender, tokenId, _saleItems[tokenId].price);
+        delete _saleItems[tokenId];
     }
 }
