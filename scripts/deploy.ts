@@ -63,14 +63,15 @@ async function main() {
   const currentBlock = await ethers.provider.getBlockNumber();
   const blockTimestamp = (await ethers.provider.getBlock(currentBlock))
     .timestamp;
+  await nt.connect(accounts[0]).approve(marketplace.address, 0);
 
   const r3 = (
     await marketplace
       .connect(accounts[0])
-      .setForSale(0, 1000, blockTimestamp + 1)
+      .setForSale(0, 1000, blockTimestamp + 3)
   ).hash;
 
-  await nt.connect(accounts[0]).approve(marketplace.address, 0);
+  // await nt.connect(accounts[0]).approve(marketplace.address, 0);
   // await nt.connect(accounts[0]).approve(accounts[2].address, 0);
   // nt.connect(accounts[0]).transferFrom(
   //   accounts[0].address,
@@ -80,8 +81,12 @@ async function main() {
 
   //*********Logging********
 
-  console.log("_rewardsAmount", await marketplace._rewardsAmount());
   console.log("items", await marketplace._saleItems(0));
+  console.log(
+    "ower of tokens should be same",
+    await nt.ownerOf(0),
+    marketplace.address
+  );
 
   console.log("********************* BUY **************************");
   await pt.connect(accounts[1]).approve(marketplace.address, 1000);
@@ -93,8 +98,9 @@ async function main() {
   console.log("_rewardsAmount", await marketplace._rewardsAmount(), 1000);
   console.log("_saleItems", await marketplace._saleItems(0), 0);
   console.log(
+    "onwer of token should be equal",
     await nt.ownerOf(0),
-    "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+    accounts[1].address
   );
   console.log(
     marketplace.address,
@@ -144,12 +150,12 @@ async function main() {
   const currentBlock2 = await ethers.provider.getBlockNumber();
   const blockTimestamp2 = (await ethers.provider.getBlock(currentBlock2))
     .timestamp;
+  await nt.connect(accounts[0]).approve(marketplace.address, 1);
 
   await marketplace
     .connect(accounts[0])
-    .setForSale(1, 1000, blockTimestamp2 + 1);
+    .setForSale(1, 1000, blockTimestamp2 + 3);
 
-  await nt.connect(accounts[0]).approve(marketplace.address, 1);
   console.log("_saleItems 1 before discard", await marketplace._saleItems(1));
 
   console.log("*************** POSTPHONE SALE *******************");
@@ -186,6 +192,11 @@ async function main() {
   ).hash;
 
   console.log("_saleItems 1 after discard", await marketplace._saleItems(1));
+  console.log(
+    "owner of token should be account",
+    accounts[0].address,
+    await nt.ownerOf(1)
+  );
 
   console.log("**************Gas Used********************");
   console.log(

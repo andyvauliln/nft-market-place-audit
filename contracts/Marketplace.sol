@@ -104,6 +104,10 @@ contract Marketplace is Rewardable {
       require(_NFT_TOKEN.ownerOf(tokenId) == msg.sender, "allowed only for nft owner");
       _;
     }
+    modifier nftSellerOnly(uint256 tokenId) {
+      require(_saleItems[tokenId].seller == msg.sender, "allowed only for nft seller");
+      _;
+    }
      modifier onlyItemOnSale(uint256 tokenId) {
       require(_saleItems[tokenId].startTime != 0, "allowed only for items on sale");
       _;
@@ -131,11 +135,12 @@ contract Marketplace is Rewardable {
         emit SetForSale(msg.sender, tokenId, price, startTime);
     }
 
-    function discardFromSale(uint256 tokenId) external nftOwnerOnly(tokenId) {
+    function discardFromSale(uint256 tokenId) external nftSellerOnly(tokenId) {
         delete _saleItems[tokenId];
+        _NFT_TOKEN.transferFrom(address(this), msg.sender, tokenId);
         emit DiscardFromSale(msg.sender, tokenId);
     }
-    function updatePrice(uint256 tokenId, uint256 newPrice) external  nftOwnerOnly(tokenId) onlyItemOnSale(tokenId) {
+    function updatePrice(uint256 tokenId, uint256 newPrice) external  nftSellerOnly(tokenId) onlyItemOnSale(tokenId) {
         SaleItem storage sale = _saleItems[tokenId];
         if(sale.price == newPrice) revert InvalidSale("new price should not be equal to old price");
 
@@ -147,7 +152,7 @@ contract Marketplace is Rewardable {
         emit UpdatePrice(msg.sender, tokenId, sale.price, newPrice );
     }
 
-    function postponeSale(uint256 tokenId, uint256 postponeSeconds) external  nftOwnerOnly(tokenId) onlyItemOnSale(tokenId) {
+    function postponeSale(uint256 tokenId, uint256 postponeSeconds) external  nftSellerOnly(tokenId) onlyItemOnSale(tokenId) {
         SaleItem storage sale = _saleItems[tokenId];
         if (block.timestamp > sale.startTime + postponeSeconds ) 
         revert InvalidSale("new token sale time should be greater than current time");
@@ -163,9 +168,9 @@ contract Marketplace is Rewardable {
         if (sale.seller == msg.sender) revert AlreadyOwner();
         if (block.timestamp < sale.startTime) revert InvalidSale("token not for sale yet");
 
-        depositForRewards(seller, msg.sender, sale.price);
+        depositForRewards(sale.seller, msg.sender, sale.price);
         _NFT_TOKEN.transferFrom(address(this), msg.sender, tokenId);
         delete _saleItems[tokenId];
-        emit Buy(seller, msg.sender, tokenId, sale.price);
+        emit Buy(sale.seller, msg.sender, tokenId, sale.price);
     }
 }

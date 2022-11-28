@@ -122,7 +122,6 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         returns (bool)
     {
         address owner = _msgSender();
-        console.log(owner, to, amount, "transfer (owner, to, amount)");
         _transfer(owner, to, amount);
         return true;
     }
@@ -157,7 +156,6 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         returns (bool)
     {
         address owner = _msgSender();
-        console.log(owner, spender, amount, "aprove (owner, spender, amount,)");
         _approve(owner, spender, amount);
         return true;
     }
@@ -184,8 +182,6 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         uint256 amount
     ) public virtual override returns (bool) {
         address spender = _msgSender();
-        console.log("transferFrom (from, to, spender, amount)");
-        console.log(from, to, spender, amount);
         _spendAllowance(from, spender, amount);
         _transfer(from, to, amount);
         return true;
@@ -268,8 +264,6 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         require(to != address(0), "ERC20: transfer to the zero address");
 
         _beforeTokenTransfer(from, to, amount);
-        console.log("transfer (from, to, amount, _balances[from])");
-        console.log(from, to, amount, _balances[from]);
         uint256 fromBalance = _balances[from];
         require(
             fromBalance >= amount,
@@ -306,11 +300,6 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
             // Overflow not possible: balance + amount is at most totalSupply + amount, which is checked above.
             _balances[account] += amount;
         }
-        console.log(
-            account,
-            _balances[account],
-            "mint (account, _balances[account])"
-        );
         emit Transfer(address(0), account, amount);
 
         _afterTokenTransfer(address(0), account, amount);
@@ -367,12 +356,6 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         require(spender != address(0), "ERC20: approve to the zero address");
 
         _allowances[owner][spender] = amount;
-        console.log(
-            owner,
-            spender,
-            _allowances[owner][spender],
-            "approve (owner, spender, _allowances[owner][spender])"
-        );
         emit Approval(owner, spender, amount);
     }
 
@@ -390,10 +373,6 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         uint256 amount
     ) internal virtual {
         uint256 currentAllowance = allowance(owner, spender);
-        console.log(
-            "_spendAllowance (owner, spender, amount, currentAllowance)"
-        );
-        console.log(owner, spender, amount, currentAllowance);
         if (currentAllowance != type(uint256).max) {
             require(
                 currentAllowance >= amount,
