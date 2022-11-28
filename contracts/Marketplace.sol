@@ -97,7 +97,6 @@ contract Marketplace is Rewardable {
     event Buy(address indexed seller, address indexed buyer, uint256 indexed tokenId, uint256 price);
 
     error AlreadyOwner();
-    error NotItemOwner();
     error InvalidSale(string message);
     error AlreadyOnSale();
 
@@ -106,7 +105,7 @@ contract Marketplace is Rewardable {
       _;
     }
      modifier onlyItemOnSale(uint256 tokenId) {
-      require(_saleItems[tokenId].seller != address(0), "allowed only for items on sale");
+      require(_saleItems[tokenId].startTime != 0, "allowed only for items on sale");
       _;
     }
 
@@ -158,19 +157,14 @@ contract Marketplace is Rewardable {
         emit PostponeSale(msg.sender, tokenId, sale.startTime);
     }
 
-    function buy(uint256 tokenId) external {
-        address seller = _NFT_TOKEN.ownerOf(tokenId);
-        if (seller == msg.sender) revert AlreadyOwner();
+    function buy(uint256 tokenId) onlyItemOnSale(tokenId) external {
         SaleItem memory sale = _saleItems[tokenId];
+        if (sale.seller == msg.sender) revert AlreadyOwner();
         if (block.timestamp < sale.startTime) revert InvalidSale("token not for sale yet");
-
-        if (sale.seller == address(0) ||
-            _saleItems[tokenId].seller == msg.sender
-        ) revert InvalidSale("token dosn't exist or sender already own it");
 
         depositForRewards(seller, msg.sender, sale.price);
         _NFT_TOKEN.transferFrom(seller, msg.sender, tokenId);
-        emit Buy(seller, msg.sender, tokenId, sale.price);
         delete _saleItems[tokenId];
+        emit Buy(seller, msg.sender, tokenId, sale.price);
     }
 }
