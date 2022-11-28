@@ -126,7 +126,7 @@ contract Marketplace is Rewardable {
         uint256 price,
         uint256 startTime
     ) external nftOwnerOnly(tokenId) {
-        if (_saleItems[tokenId].startTime > 0) revert AlreadyOnSale();
+        if (_saleItems[tokenId].startTime != 0) revert AlreadyOnSale();
         if (block.timestamp > startTime) revert InvalidSale("token sale time should be greater than current time");
        
 
@@ -135,7 +135,7 @@ contract Marketplace is Rewardable {
         emit SetForSale(msg.sender, tokenId, price, startTime);
     }
 
-    function discardFromSale(uint256 tokenId) external nftSellerOnly(tokenId) {
+    function discardFromSale(uint256 tokenId) external onlyItemOnSale(tokenId) nftSellerOnly(tokenId) {
         delete _saleItems[tokenId];
         _NFT_TOKEN.transferFrom(address(this), msg.sender, tokenId);
         emit DiscardFromSale(msg.sender, tokenId);
