@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -88,20 +88,20 @@ contract Marketplace is Rewardable {
     }   
    
     IERC721 internal _NFT_TOKEN;
-    mapping(uint64 => SaleItem) public _saleItems; // nft tokenId => item
+    mapping(uint256 => SaleItem) public _saleItems; // nft tokenId => item
 
-    event SetForSale(address indexed seller, uint64 indexed tokenId, uint256 price, uint256 startTime);
-    event DiscardFromSale(address indexed seller, uint64 indexed tokenId);
-    event UpdatePrice(address indexed seller, uint64 indexed tokenId, uint256 oldPrice, uint256 newPrice);
-    event PostponeSale(address indexed seller, uint64 indexed tokenId, uint256 newStartTime);
-    event Buy(address indexed seller, address indexed buyer, uint64 indexed tokenId, uint256 price);
+    event SetForSale(address indexed seller, uint256 indexed tokenId, uint256 price, uint256 startTime);
+    event DiscardFromSale(address indexed seller, uint256 indexed tokenId);
+    event UpdatePrice(address indexed seller, uint256 indexed tokenId, uint256 oldPrice, uint256 newPrice);
+    event PostponeSale(address indexed seller, uint256 indexed tokenId, uint256 newStartTime);
+    event Buy(address indexed seller, address indexed buyer, uint256 indexed tokenId, uint256 price);
 
     error AlreadyOwner();
     error NotItemOwner();
     error InvalidSale(string message);
     error AlreadyOnSale();
 
-    modifier _nftOwnerOnly(uint64 tokenId) {
+    modifier _nftOwnerOnly(uint256 tokenId) {
       require(_NFT_TOKEN.ownerOf(tokenId) == msg.sender, "only nft owner");
       _;
     }
@@ -115,7 +115,7 @@ contract Marketplace is Rewardable {
     }
 
     function setForSale(
-        uint64 tokenId,
+        uint256 tokenId,
         uint256 price,
         uint256 startTime
     ) external _nftOwnerOnly(tokenId) {
@@ -127,11 +127,11 @@ contract Marketplace is Rewardable {
         emit SetForSale(msg.sender, tokenId, price, startTime);
     }
 
-    function discardFromSale(uint64 tokenId) external _nftOwnerOnly(tokenId) {
+    function discardFromSale(uint256 tokenId) external _nftOwnerOnly(tokenId) {
         delete _saleItems[tokenId];
         emit DiscardFromSale(msg.sender, tokenId);
     }
-    function updatePrice(uint64 tokenId, uint256 newPrice) external  _nftOwnerOnly(tokenId) {
+    function updatePrice(uint256 tokenId, uint256 newPrice) external  _nftOwnerOnly(tokenId) {
         SaleItem storage sale = _saleItems[tokenId];
         if(sale.price == newPrice) revert InvalidSale("new price should be not equal to old price");
 
@@ -143,10 +143,10 @@ contract Marketplace is Rewardable {
         emit UpdatePrice(msg.sender, tokenId, sale.price, newPrice );
     }
 
-    function postponeSale(uint64 tokenId, uint64 postponeSeconds) external  _nftOwnerOnly(tokenId) {
+    function postponeSale(uint256 tokenId, uint256 postponeSeconds) external  _nftOwnerOnly(tokenId) {
         SaleItem storage sale = _saleItems[tokenId];
-        if (block.timestamp > sale.startTime + postponeSeconds && (sale.startTime + postponeSeconds) < type(uint64).max ) 
-        revert InvalidSale("new token sale time should be greater than current time and less than uint64 max value");
+        if (block.timestamp > sale.startTime + postponeSeconds ) 
+        revert InvalidSale("new token sale time should be greater than current time and less than uint256 max value");
         assembly {
             let s := add(sale.slot, 2)
             sstore(s, add(sload(s), postponeSeconds))
@@ -154,18 +154,18 @@ contract Marketplace is Rewardable {
         emit PostponeSale(msg.sender, tokenId, sale.startTime);
     }
 
-    function buy(uint64 tokenId) external {
+    function buy(uint256 tokenId) external {
         address seller = _NFT_TOKEN.ownerOf(tokenId);
         if (seller == msg.sender) revert AlreadyOwner();
-        if (block.timestamp < _saleItems[tokenId].startTime) revert InvalidSale("token not for sale yet");
+        SaleItem memory sale = _saleItems[tokenId];
+        if (block.timestamp < sale.startTime) revert InvalidSale("token not for sale yet");
 
-        if (_saleItems[tokenId].seller == address(0) ||
-            _saleItems[tokenId].seller == msg.sender
+        if (sale.seller == address(0)
         ) revert InvalidSale("token dosn't exist or sender already own it");
 
-        depositForRewards(seller, msg.sender, _saleItems[tokenId].price);
+        depositForRewards(seller, msg.sender, sale.price);
         _NFT_TOKEN.transferFrom(seller, msg.sender, tokenId);
-        emit Buy(seller, msg.sender, tokenId, _saleItems[tokenId].price);
+        emit Buy(seller, msg.sender, tokenId, sale.price);
         delete _saleItems[tokenId];
     }
 }
