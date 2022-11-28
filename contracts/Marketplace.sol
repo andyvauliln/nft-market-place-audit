@@ -102,7 +102,11 @@ contract Marketplace is Rewardable {
     error AlreadyOnSale();
 
     modifier nftOwnerOnly(uint256 tokenId) {
-      require(_NFT_TOKEN.ownerOf(tokenId) == msg.sender, "only nft owner");
+      require(_NFT_TOKEN.ownerOf(tokenId) == msg.sender, "allowed only for nft owner");
+      _;
+    }
+     modifier onlyItemOnSale(uint256 tokenId) {
+      require(_saleItems[tokenId].seller != address(0), "allowed only for items on sale");
       _;
     }
 
@@ -131,7 +135,7 @@ contract Marketplace is Rewardable {
         delete _saleItems[tokenId];
         emit DiscardFromSale(msg.sender, tokenId);
     }
-    function updatePrice(uint256 tokenId, uint256 newPrice) external  nftOwnerOnly(tokenId) {
+    function updatePrice(uint256 tokenId, uint256 newPrice) external  nftOwnerOnly(tokenId) onlyItemOnSale(tokenId) {
         SaleItem storage sale = _saleItems[tokenId];
         if(sale.price == newPrice) revert InvalidSale("new price should not be equal to old price");
 
@@ -143,7 +147,7 @@ contract Marketplace is Rewardable {
         emit UpdatePrice(msg.sender, tokenId, sale.price, newPrice );
     }
 
-    function postponeSale(uint256 tokenId, uint256 postponeSeconds) external  nftOwnerOnly(tokenId) {
+    function postponeSale(uint256 tokenId, uint256 postponeSeconds) external  nftOwnerOnly(tokenId) onlyItemOnSale(tokenId) {
         SaleItem storage sale = _saleItems[tokenId];
         if (block.timestamp > sale.startTime + postponeSeconds ) 
         revert InvalidSale("new token sale time should be greater than current time");
