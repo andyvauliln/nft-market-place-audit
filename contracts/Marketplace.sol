@@ -127,6 +127,7 @@ contract Marketplace is Rewardable {
        
 
         _saleItems[tokenId] = SaleItem(msg.sender, price, startTime);
+         _NFT_TOKEN.transferFrom(msg.sender, address(this), tokenId);
         emit SetForSale(msg.sender, tokenId, price, startTime);
     }
 
@@ -163,7 +164,7 @@ contract Marketplace is Rewardable {
         if (block.timestamp < sale.startTime) revert InvalidSale("token not for sale yet");
 
         depositForRewards(seller, msg.sender, sale.price);
-        _NFT_TOKEN.transferFrom(seller, msg.sender, tokenId);
+        _NFT_TOKEN.transferFrom(address(this), msg.sender, tokenId);
         delete _saleItems[tokenId];
         emit Buy(seller, msg.sender, tokenId, sale.price);
     }
