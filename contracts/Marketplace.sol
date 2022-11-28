@@ -15,7 +15,7 @@ contract Rewardable {
     event RewardsClaimed(address indexed seller, uint256 amount);
     error NothingForClaim();
    
-    uint256 public constant _PCT_DENOMINATOR = 1000;
+    uint256 private constant _PCT_DENOMINATOR = 1000;
     uint256 private constant _SEED = 335813536577843457;
 
     IERC20 internal _PAYMENT_TOKEN;
@@ -101,7 +101,7 @@ contract Marketplace is Rewardable {
     error InvalidSale(string message);
     error AlreadyOnSale();
 
-    modifier _nftOwnerOnly(uint256 tokenId) {
+    modifier nftOwnerOnly(uint256 tokenId) {
       require(_NFT_TOKEN.ownerOf(tokenId) == msg.sender, "only nft owner");
       _;
     }
@@ -118,7 +118,7 @@ contract Marketplace is Rewardable {
         uint256 tokenId,
         uint256 price,
         uint256 startTime
-    ) external _nftOwnerOnly(tokenId) {
+    ) external nftOwnerOnly(tokenId) {
         if (_saleItems[tokenId].startTime > 0) revert AlreadyOnSale();
         if (block.timestamp > startTime) revert InvalidSale("token sale time should be greater than current time");
        
@@ -127,13 +127,13 @@ contract Marketplace is Rewardable {
         emit SetForSale(msg.sender, tokenId, price, startTime);
     }
 
-    function discardFromSale(uint256 tokenId) external _nftOwnerOnly(tokenId) {
+    function discardFromSale(uint256 tokenId) external nftOwnerOnly(tokenId) {
         delete _saleItems[tokenId];
         emit DiscardFromSale(msg.sender, tokenId);
     }
-    function updatePrice(uint256 tokenId, uint256 newPrice) external  _nftOwnerOnly(tokenId) {
+    function updatePrice(uint256 tokenId, uint256 newPrice) external  nftOwnerOnly(tokenId) {
         SaleItem storage sale = _saleItems[tokenId];
-        if(sale.price == newPrice) revert InvalidSale("new price should be not equal to old price");
+        if(sale.price == newPrice) revert InvalidSale("new price should not be equal to old price");
 
 
         assembly {
@@ -143,10 +143,10 @@ contract Marketplace is Rewardable {
         emit UpdatePrice(msg.sender, tokenId, sale.price, newPrice );
     }
 
-    function postponeSale(uint256 tokenId, uint256 postponeSeconds) external  _nftOwnerOnly(tokenId) {
+    function postponeSale(uint256 tokenId, uint256 postponeSeconds) external  nftOwnerOnly(tokenId) {
         SaleItem storage sale = _saleItems[tokenId];
         if (block.timestamp > sale.startTime + postponeSeconds ) 
-        revert InvalidSale("new token sale time should be greater than current time and less than uint256 max value");
+        revert InvalidSale("new token sale time should be greater than current time");
         assembly {
             let s := add(sale.slot, 2)
             sstore(s, add(sload(s), postponeSeconds))
@@ -160,7 +160,8 @@ contract Marketplace is Rewardable {
         SaleItem memory sale = _saleItems[tokenId];
         if (block.timestamp < sale.startTime) revert InvalidSale("token not for sale yet");
 
-        if (sale.seller == address(0)
+        if (sale.seller == address(0) ||
+            _saleItems[tokenId].seller == msg.sender
         ) revert InvalidSale("token dosn't exist or sender already own it");
 
         depositForRewards(seller, msg.sender, sale.price);

@@ -65,7 +65,9 @@ async function main() {
     .timestamp;
 
   const r3 = (
-    await marketplace.connect(accounts[0]).setForSale(0, 0, blockTimestamp + 1)
+    await marketplace
+      .connect(accounts[0])
+      .setForSale(0, 1000, blockTimestamp + 1)
   ).hash;
 
   await nt.connect(accounts[0]).approve(marketplace.address, 0);
@@ -82,7 +84,7 @@ async function main() {
   console.log("items", await marketplace._saleItems(0));
 
   console.log("********************* BUY **************************");
-  //await pt.connect(accounts[1]).approve(marketplace.address, 1000);
+  await pt.connect(accounts[1]).approve(marketplace.address, 1000);
 
   const r5 = await(await marketplace.connect(accounts[1]).buy(0)).hash;
 
@@ -154,12 +156,13 @@ async function main() {
   const r2 = await(
     await marketplace.postponeSale(
       1,
-      ethers.BigNumber.from(
-        "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-      )
+      ethers.BigNumber.from("1157920892373161954235709")
     )
   ).hash;
-
+  console.log(
+    "_saleItems 1 after update Price",
+    await marketplace._saleItems(1)
+  );
   console.log("*************** UPDATE PRICE *******************");
   console.log(
     "_saleItems 1 before update Price",
