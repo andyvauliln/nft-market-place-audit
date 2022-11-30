@@ -16,8 +16,7 @@ async function main() {
   const pt = await PaymentToken.deploy();
 
   await pt.deployed();
-
-  console.log("PaymentToken deployed to:", pt.address); //0x5FbDB2315678afecb367f032d93F642f64180aa3
+  pt.console.log("PaymentToken deployed to:", pt.address); //0x5FbDB2315678afecb367f032d93F642f64180aa3
   console.log(accounts[0].address, await pt.balanceOf(accounts[0].address));
   console.log(accounts[1].address, await pt.balanceOf(accounts[1].address));
   console.log(accounts[2].address, await pt.balanceOf(accounts[2].address));
@@ -88,10 +87,32 @@ async function main() {
     marketplace.address
   );
 
+  // console.log("*******************Attack******************************");
+  // const Attack = await ethers.getContractFactory("Attack");
+  // const at = await Attack.deploy(marketplace.address);
+
+  // await at.deployed();
+  // console.log(at.address);
+  // console.log(await pt.balanceOf(at.address), "balance of attacker");
+  // //console.log(at.provider);
+
+  // await pt.connect(at.signer).approve(marketplace.address, 1000000);
+  // console.log(await pt.allowance(at.address, marketplace.address));
+  // at.attack();
+
+  // console.log(await pt.balanceOf(at.address), "balance of attacker");
+  // console.log(
+  //   await nt.ownerOf(0),
+  //   "owner of token",
+  //   "should be 0x0165878A594ca255338adfa4d48449f69242Eb8F"
+  // );
+
+  // return;
+
   console.log("********************* BUY **************************");
   await pt.connect(accounts[1]).approve(marketplace.address, 1000);
 
-  const r5 = await(await marketplace.connect(accounts[1]).buy(0)).hash;
+  const r5 = await (await marketplace.connect(accounts[1]).buy(0)).hash;
 
   //*********Logging********
 
@@ -114,7 +135,7 @@ async function main() {
   );
 
   console.log("********************* CLAIM **************************");
-  const r4 = await(await marketplace.connect(accounts[0]).claimReward()).hash;
+  const r4 = await (await marketplace.connect(accounts[0]).claimReward()).hash;
 
   //*********Logging********
 
@@ -159,10 +180,12 @@ async function main() {
   console.log("_saleItems 1 before discard", await marketplace._saleItems(1));
 
   console.log("*************** POSTPHONE SALE *******************");
-  const r2 = await(
+  const r2 = await (
     await marketplace.postponeSale(
       1,
-      ethers.BigNumber.from("1157920892373161954235709")
+      ethers.BigNumber.from(
+        "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+      )
     )
   ).hash;
   console.log(
@@ -174,7 +197,7 @@ async function main() {
     "_saleItems 1 before update Price",
     await marketplace._saleItems(1)
   );
-  const r7 = await(
+  const r7 = await (
     await marketplace.updatePrice(
       1,
       ethers.BigNumber.from("18446744073709551615")
@@ -187,7 +210,7 @@ async function main() {
   );
 
   console.log("*************** DISCARD SALE *******************");
-  const r1 = await(
+  const r1 = await (
     await marketplace.connect(accounts[0]).discardFromSale(1)
   ).hash;
 
@@ -201,27 +224,39 @@ async function main() {
   console.log("**************Gas Used********************");
   console.log(
     "Gas Used for setForSale",
-    await(await ethers.provider.getTransactionReceipt(r3)).gasUsed
+    await (
+      await ethers.provider.getTransactionReceipt(r3)
+    ).gasUsed
   );
   console.log(
     "Gas Used for Buy",
-    await(await ethers.provider.getTransactionReceipt(r5)).gasUsed
+    await (
+      await ethers.provider.getTransactionReceipt(r5)
+    ).gasUsed
   );
   console.log(
     "Gas Used for claim",
-    await(await ethers.provider.getTransactionReceipt(r4)).gasUsed
+    await (
+      await ethers.provider.getTransactionReceipt(r4)
+    ).gasUsed
   );
   console.log(
     "Gas Used for update Price",
-    await(await ethers.provider.getTransactionReceipt(r7)).gasUsed
+    await (
+      await ethers.provider.getTransactionReceipt(r7)
+    ).gasUsed
   );
   console.log(
     "Gas Used for postponeSale",
-    await(await ethers.provider.getTransactionReceipt(r2)).gasUsed
+    await (
+      await ethers.provider.getTransactionReceipt(r2)
+    ).gasUsed
   );
   console.log(
     "Gas Used for discardFromSale",
-    await(await ethers.provider.getTransactionReceipt(r1)).gasUsed
+    await (
+      await ethers.provider.getTransactionReceipt(r1)
+    ).gasUsed
   );
   console.log(
     "Gas Used for deployment: ",

@@ -5,6 +5,7 @@ pragma solidity 0.8.17;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "hardhat/console.sol";
 
 contract Rewardable {
      struct Reward {
@@ -164,6 +165,7 @@ contract Marketplace is Rewardable {
     }
 
     function buy(uint256 tokenId) onlyItemOnSale(tokenId) external {
+        console.log("buy");
         SaleItem memory sale = _saleItems[tokenId];
         if (sale.seller == msg.sender) revert AlreadyOwner();
         if (block.timestamp < sale.startTime) revert InvalidSale("token not for sale yet");

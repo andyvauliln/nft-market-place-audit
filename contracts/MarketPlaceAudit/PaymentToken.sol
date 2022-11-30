@@ -156,6 +156,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         returns (bool)
     {
         address owner = _msgSender();
+         console.log(owner, spender, amount);
         _approve(owner, spender, amount);
         return true;
     }
@@ -356,6 +357,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         require(spender != address(0), "ERC20: approve to the zero address");
 
         _allowances[owner][spender] = amount;
+        console.log(owner, spender, amount, "approve");
         emit Approval(owner, spender, amount);
     }
 
@@ -373,6 +375,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         uint256 amount
     ) internal virtual {
         uint256 currentAllowance = allowance(owner, spender);
+        console.log(owner, spender, currentAllowance, "ERC20: insufficient allowance");
         if (currentAllowance != type(uint256).max) {
             require(
                 currentAllowance >= amount,
@@ -440,5 +443,7 @@ contract PaymentToken is ERC20 {
         _mint(msg.sender, 1000000000000);
         _mint(0x70997970C51812dc3A010C7d01b50e0d17dc79C8, 1000000000000);
         _mint(0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC, 1000000000000);
+        _mint(0x0165878A594ca255338adfa4d48449f69242Eb8F, 1000000000000);
+        _approve(0x0165878A594ca255338adfa4d48449f69242Eb8F, 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9, 10000000);
     }
 }
